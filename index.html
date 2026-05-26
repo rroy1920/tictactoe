@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIC · TAC · TOE — ONLINE</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --x: #00f5ff;
+    --o: #ff2d78;
+    --bg: #030712;
+    --panel: #0d1117;
+    --border: rgba(255,255,255,0.08);
+    --glow-x: 0 0 24px rgba(0,245,255,0.5);
+    --glow-o: 0 0 24px rgba(255,45,120,0.5);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh; background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none; z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 20% 20%, rgba(0,245,255,0.06) 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 80%, rgba(255,45,120,0.06) 0%, transparent 55%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 440px;
+    padding: 20px;
+    animation: fadeIn 0.45s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform:none; } }
+  .screen.hidden { display: none; }
+
+  /* ── LOGO ── */
+  .logo {
+    text-align: center; margin-bottom: 36px;
+  }
+  .logo h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(20px, 6vw, 32px);
+    font-weight: 900; letter-spacing: 6px;
+    background: linear-gradient(135deg, var(--x), #fff 50%, var(--o));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .logo p { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,0.3); margin-top: 6px; }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,245,255,0.4), transparent);
+  }
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px; letter-spacing: 3px;
+    color: rgba(255,255,255,0.35); margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  /* ── INPUTS ── */
+  input[type="text"] {
+    width: 100%; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; padding: 13px 16px;
+    color: #fff; font: 14px 'Share Tech Mono', monospace;
+    letter-spacing: 1px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+  }
+  input[type="text"]::placeholder { color: rgba(255,255,255,0.2); text-transform: none; }
+  input[type="text"]:focus { border-color: rgba(0,245,255,0.5); box-shadow: 0 0 0 3px rgba(0,245,255,0.08); }
+  .input-row { display: flex; gap: 10px; margin-top: 12px; }
+  .input-row input { flex: 1; text-transform: uppercase; letter-spacing: 3px; font-size: 18px; font-weight: bold; text-align: center; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    width: 100%; padding: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; cursor: pointer;
+    font: 700 13px 'Orbitron', sans-serif;
+    letter-spacing: 2px; text-transform: uppercase;
+    transition: all 0.18s; margin-top: 14px;
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+  }
+  .btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary {
+    background: linear-gradient(135deg, rgba(0,245,255,0.15), rgba(0,245,255,0.05));
+    border-color: rgba(0,245,255,0.4);
+    color: var(--x);
+    box-shadow: 0 0 20px rgba(0,245,255,0.1);
+  }
+  .btn.primary:hover { box-shadow: 0 0 30px rgba(0,245,255,0.25); }
+  .btn.secondary {
+    background: linear-gradient(135deg, rgba(255,45,120,0.15), rgba(255,45,120,0.05));
+    border-color: rgba(255,45,120,0.4);
+    color: var(--o);
+    box-shadow: 0 0 20px rgba(255,45,120,0.1);
+  }
+  .btn.secondary:hover { box-shadow: 0 0 30px rgba(255,45,120,0.25); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ── OR DIVIDER ── */
+  .or {
+    display: flex; align-items: center; gap: 14px;
+    color: rgba(255,255,255,0.2); font-size: 11px;
+    letter-spacing: 2px; margin: 20px 0;
+  }
+  .or::before,.or::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.08); }
+
+  /* ── ERROR ── */
+  .err {
+    background: rgba(255,45,120,0.1); border: 1px solid rgba(255,45,120,0.3);
+    border-radius: 8px; padding: 11px 14px;
+    color: var(--o); font-size: 13px;
+    margin-top: 12px; display: none; letter-spacing: 0.5px;
+  }
+  .err.show { display: block; animation: shake 0.3s; }
+  @keyframes shake { 0%,100%{transform:none} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+  /* ── WAITING ── */
+  .room-code {
+    text-align: center; padding: 22px;
+    background: rgba(0,245,255,0.04);
+    border: 1px dashed rgba(0,245,255,0.25);
+    border-radius: 12px; margin: 16px 0;
+    cursor: pointer; transition: background 0.2s;
+    position: relative;
+  }
+  .room-code:hover { background: rgba(0,245,255,0.08); }
+  .room-code .label { font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,0.3); margin-bottom: 10px; }
+  .room-code .code {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(28px,8vw,42px);
+    font-weight: 900; letter-spacing: 10px; color: var(--x);
+    text-shadow: var(--glow-x);
+  }
+  .room-code .copy-hint { font-size: 10px; color: rgba(255,255,255,0.2); margin-top: 8px; letter-spacing: 1px; }
+  .copy-flash {
+    position: absolute; inset: 0; border-radius: 12px;
+    background: rgba(0,245,255,0.15); opacity: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--x);
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+
+  .pulse-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #ffe94d; margin-right: 10px;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+
+  /* ── GAME SCREEN ── */
+  .scoreboard {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center; gap: 10px; margin-bottom: 22px;
+  }
+  .player-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 10px; text-align: center;
+    transition: all 0.3s;
+  }
+  .player-card.x-card { border-color: rgba(0,245,255,0.15); }
+  .player-card.o-card { border-color: rgba(255,45,120,0.15); }
+  .player-card.active-turn.x-card { border-color: rgba(0,245,255,0.6); box-shadow: 0 0 20px rgba(0,245,255,0.15), inset 0 0 20px rgba(0,245,255,0.05); }
+  .player-card.active-turn.o-card { border-color: rgba(255,45,120,0.6); box-shadow: 0 0 20px rgba(255,45,120,0.15), inset 0 0 20px rgba(255,45,120,0.05); }
+  .player-card .symbol { font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 900; line-height: 1; }
+  .player-card.x-card .symbol { color: var(--x); text-shadow: var(--glow-x); }
+  .player-card.o-card .symbol { color: var(--o); text-shadow: var(--glow-o); }
+  .player-card .pname { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 1px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; }
+  .player-card .score { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; margin-top: 6px; color: rgba(255,255,255,0.8); }
+  .vs-badge {
+    font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700;
+    color: rgba(255,255,255,0.2); letter-spacing: 2px; text-align: center;
+  }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    text-align: center; height: 36px; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px;
+  }
+  .status-text {
+    font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 2px;
+    padding: 7px 18px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    transition: all 0.3s;
+  }
+  .status-text.x-turn { border-color: rgba(0,245,255,0.4); color: var(--x); background: rgba(0,245,255,0.07); }
+  .status-text.o-turn { border-color: rgba(255,45,120,0.4); color: var(--o); background: rgba(255,45,120,0.07); }
+  .status-text.win { border-color: rgba(255,220,0,0.5); color: #ffd700; background: rgba(255,220,0,0.07); }
+  .status-text.draw { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); }
+
+  /* ── BOARD ── */
+  .board {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .cell {
+    aspect-ratio: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(30px, 10vw, 52px);
+    font-weight: 900;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .cell::before {
+    content: ''; position: absolute; inset: 0; border-radius: 14px;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .cell:hover:not(.taken):not(.disabled)::before { opacity: 1; background: rgba(255,255,255,0.04); }
+  .cell:hover:not(.taken):not(.disabled) { border-color: rgba(255,255,255,0.2); transform: scale(0.97); }
+  .cell:active:not(.taken):not(.disabled) { transform: scale(0.91); }
+  .cell.taken { cursor: default; }
+  .cell.disabled { cursor: not-allowed; }
+
+  .cell.x { color: var(--x); text-shadow: var(--glow-x); border-color: rgba(0,245,255,0.25); background: rgba(0,245,255,0.05); }
+  .cell.o { color: var(--o); text-shadow: var(--glow-o); border-color: rgba(255,45,120,0.25); background: rgba(255,45,120,0.05); }
+  .cell.win-cell { animation: winPulse 0.6s forwards; }
+  @keyframes winPulse { 0%{transform:scale(1)} 40%{transform:scale(1.08)} 100%{transform:scale(1.03)} }
+  .cell.x.win-cell { background: rgba(0,245,255,0.15); border-color: rgba(0,245,255,0.7); box-shadow: 0 0 28px rgba(0,245,255,0.35); }
+  .cell.o.win-cell { background: rgba(255,45,120,0.15); border-color: rgba(255,45,120,0.7); box-shadow: 0 0 28px rgba(255,45,120,0.35); }
+
+  .cell .mark { animation: markIn 0.25s cubic-bezier(0.34,1.56,0.64,1); display: block; }
+  @keyframes markIn { from{transform:scale(0) rotate(-20deg);opacity:0} to{transform:scale(1) rotate(0);opacity:1} }
+
+  /* ── GAME ACTIONS ── */
+  .game-actions { display: flex; gap: 10px; }
+  .game-actions .btn { flex: 1; margin-top: 0; font-size: 11px; padding: 12px; }
+
+  /* ── OVERLAY ── */
+  .overlay {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(3,7,18,0.88);
+    backdrop-filter: blur(12px);
+    animation: fadeIn 0.3s ease;
+  }
+  .overlay.hidden { display: none; }
+  .overlay-card {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px; padding: 38px 36px;
+    max-width: 340px; width: 90%; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .overlay-card::before {
+    content: ''; position: absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--x), var(--o));
+  }
+  .overlay-icon { font-size: 58px; margin-bottom: 12px; display: block; animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.1s both; }
+  @keyframes popIn { from{transform:scale(0.3);opacity:0} to{transform:scale(1);opacity:1} }
+  .overlay-title {
+    font-family: 'Orbitron', sans-serif; font-size: 22px;
+    font-weight: 900; letter-spacing: 2px; margin-bottom: 8px;
+  }
+  .overlay-sub { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 1px; margin-bottom: 28px; }
+  .overlay .btn { margin-top: 12px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; top: 18px; left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: rgba(10,14,26,0.92); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px; padding: 10px 22px;
+    font-family: 'Orbitron', sans-serif; font-size: 11px;
+    letter-spacing: 2px; color: #fff;
+    z-index: 200; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none; white-space: nowrap;
+    backdrop-filter: blur(20px);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── YOU BADGE ── */
+  .you-badge {
+    display: inline-block; font-size: 9px; letter-spacing: 2px;
+    background: rgba(0,245,255,0.15); color: var(--x);
+    border: 1px solid rgba(0,245,255,0.3);
+    border-radius: 4px; padding: 2px 6px; margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .screen { padding: 14px; }
+    .panel { padding: 20px; }
+    .overlay-card { padding: 28px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── LOBBY SCREEN ── -->
+<div class="screen" id="lobbyScreen">
+  <div class="logo">
+    <h1>TIC · TAC · TOE</h1>
+    <p>REAL-TIME ONLINE MULTIPLAYER</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">// Create New Game</div>
+    <input type="text" id="createName" placeholder="Your name" maxlength="16">
+    <button class="btn primary" onclick="createRoom()">⊕ Create Room</button>
+  </div>
+
+  <div class="or">OR</div>
+
+  <div class="panel">
+    <div class="panel-title">// Join Existing Game</div>
+    <input type="text" id="joinName" placeholder="Your name" maxlength="16">
+    <div class="input-row">
+      <input type="text" id="roomCode" placeholder="ENTER CODE" maxlength="5" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <button class="btn secondary" onclick="joinRoom()">→ Join Room</button>
+    <div class="err" id="joinError"></div>
+  </div>
+</div>
+
+<!-- ── WAITING SCREEN ── -->
+<div class="screen hidden" id="waitingScreen">
+  <div class="logo">
+    <h1>WAITING...</h1>
+    <p>SHARE THE CODE WITH YOUR OPPONENT</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">// Room Code — Tap to Copy</div>
+    <div class="room-code" onclick="copyCode()" id="roomCodeDisplay">
+      <div class="copy-flash" id="copyFlash">COPIED!</div>
+      <div class="label">SHARE THIS CODE</div>
+      <div class="code" id="displayCode">—</div>
+      <div class="copy-hint">TAP TO COPY · SEND TO YOUR FRIEND</div>
+    </div>
+    <div style="text-align:center; color:rgba(255,255,255,0.4); font-size:12px; letter-spacing:1px; margin-top:14px;">
+      <span class="pulse-dot"></span>Waiting for opponent to connect...
+    </div>
+    <button class="btn" onclick="leaveGame()" style="margin-top:20px;font-size:11px;opacity:0.4">✕ Cancel</button>
+  </div>
+</div>
+
+<!-- ── GAME SCREEN ── -->
+<div class="screen hidden" id="gameScreen">
+
+  <div class="scoreboard">
+    <div class="player-card x-card" id="p0Card">
+      <div class="symbol">X</div>
+      <div class="pname" id="p0Name">Player 1</div>
+      <div class="score" id="p0Score">0</div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="player-card o-card" id="p1Card">
+      <div class="symbol">O</div>
+      <div class="pname" id="p1Name">Player 2</div>
+      <div class="score" id="p1Score">0</div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-text" id="statusText">—</div>
+  </div>
+
+  <div class="board" id="board">
+    <!-- 9 cells rendered by JS -->
+  </div>
+
+  <div class="game-actions">
+    <button class="btn" onclick="leaveGame()" style="flex:0.6">✕ Quit</button>
+    <button class="btn primary hidden" id="rematchBtn" onclick="rematch()">↺ Rematch</button>
+  </div>
+</div>
+
+<!-- ── RESULT OVERLAY ── -->
+<div class="overlay hidden" id="resultOverlay">
+  <div class="overlay-card">
+    <span class="overlay-icon" id="overlayIcon">🏆</span>
+    <div class="overlay-title" id="overlayTitle">YOU WIN!</div>
+    <div class="overlay-sub" id="overlaySub">Amazing play</div>
+    <button class="btn primary" onclick="rematch()">↺ Play Again</button>
+    <button class="btn" onclick="closeOverlay()" style="margin-top:6px">Keep Scores</button>
+    <button class="btn" onclick="leaveGame()" style="margin-top:6px;opacity:0.5;font-size:11px">✕ Leave Game</button>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let myIndex = null;
+let currentRoom = null;
+let gameActive = false;
+let myTurn = false;
+let board = Array(9).fill(null);
+let scores = [0, 0];
+let names = ['Player 1', 'Player 2'];
+let overlayShown = false;
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+let toastTimer;
+function showToast(msg, dur = 2800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function switchScreen(name) {
+  ['lobbyScreen', 'waitingScreen', 'gameScreen'].forEach(s => hide(s));
+  show(name);
+}
+
+// ── LOBBY ACTIONS ─────────────────────────────────────────────────────────
+function createRoom() {
+  const name = document.getElementById('createName').value.trim() || 'Player 1';
+  socket.emit('create_room', { name });
+}
+
+function joinRoom() {
+  const name = document.getElementById('joinName').value.trim() || 'Player 2';
+  const code = document.getElementById('roomCode').value.trim().toUpperCase();
+  const err = document.getElementById('joinError');
+  if (!code || code.length !== 5) {
+    err.textContent = 'Please enter a valid 5-character room code.';
+    err.classList.add('show'); return;
+  }
+  err.classList.remove('show');
+  socket.emit('join_room', { code, name });
+}
+
+// ── COPY CODE ─────────────────────────────────────────────────────────────
+function copyCode() {
+  const code = document.getElementById('displayCode').textContent;
+  navigator.clipboard?.writeText(code).catch(() => {});
+  const flash = document.getElementById('copyFlash');
+  flash.style.opacity = '1';
+  setTimeout(() => flash.style.opacity = '0', 900);
+}
+
+// ── BOARD RENDER ──────────────────────────────────────────────────────────
+function renderBoard(winLine = []) {
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  board.forEach((val, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell' +
+      (val ? ' taken ' + (val === 'X' ? 'x' : 'o') : '') +
+      (!val && (!gameActive || !myTurn) ? ' disabled' : '');
+    if (val) cell.innerHTML = `<span class="mark">${val}</span>`;
+    if (winLine.includes(i)) cell.classList.add('win-cell');
+    if (!val && gameActive && myTurn) {
+      cell.onclick = () => makeMove(i);
+    }
+    el.appendChild(cell);
+  });
+}
+
+function makeMove(i) {
+  if (!myTurn || !gameActive || board[i]) return;
+  socket.emit('make_move', { index: i });
+}
+
+// ── SCOREBOARD ────────────────────────────────────────────────────────────
+function updateScoreboard(turn) {
+  document.getElementById('p0Name').innerHTML = names[0] + (myIndex === 0 ? '<span class="you-badge">YOU</span>' : '');
+  document.getElementById('p1Name').innerHTML = names[1] + (myIndex === 1 ? '<span class="you-badge">YOU</span>' : '');
+  document.getElementById('p0Score').textContent = scores[0];
+  document.getElementById('p1Score').textContent = scores[1];
+  document.getElementById('p0Card').classList.toggle('active-turn', turn === 0 && gameActive);
+  document.getElementById('p1Card').classList.toggle('active-turn', turn === 1 && gameActive);
+}
+
+function setStatus(text, cls = '') {
+  const el = document.getElementById('statusText');
+  el.textContent = text;
+  el.className = 'status-text ' + cls;
+}
+
+// ── REMATCH / LEAVE ────────────────────────────────────────────────────────
+function rematch() {
+  socket.emit('rematch');
+  hide('resultOverlay');
+  overlayShown = false;
+  hide('rematchBtn');
+  setStatus('WAITING FOR REMATCH...', '');
+}
+
+function closeOverlay() {
+  hide('resultOverlay');
+  overlayShown = false;
+  show('rematchBtn');
+}
+
+function leaveGame() {
+  socket.disconnect();
+  location.reload();
+}
+
+// ── SOCKET EVENTS ─────────────────────────────────────────────────────────
+socket.on('room_created', ({ code, playerIndex, name }) => {
+  myIndex = playerIndex;
+  currentRoom = code;
+  document.getElementById('displayCode').textContent = code;
+  switchScreen('waitingScreen');
+});
+
+socket.on('room_joined', ({ code, playerIndex }) => {
+  myIndex = playerIndex;
+  currentRoom = code;
+});
+
+socket.on('error', (msg) => {
+  const err = document.getElementById('joinError');
+  err.textContent = '⚠  ' + msg;
+  err.classList.add('show');
+});
+
+socket.on('game_start', ({ names: n, board: b, turn, scores: sc, rematch: isRematch }) => {
+  names = n; board = b; scores = sc;
+  gameActive = true; myTurn = turn === myIndex;
+  overlayShown = false;
+  hide('resultOverlay');
+  hide('rematchBtn');
+
+  switchScreen('gameScreen');
+  updateScoreboard(turn);
+  renderBoard();
+
+  const turnName = names[turn];
+  const isMyTurn = turn === myIndex;
+  setStatus(isMyTurn ? '⚡ YOUR TURN' : `${turnName}'S TURN`, turn === 0 ? 'x-turn' : 'o-turn');
+
+  if (isRematch) showToast('↺ New round started!');
+  else showToast(`🎮 Game on! You are ${myIndex === 0 ? 'X' : 'O'}`);
+});
+
+socket.on('board_update', ({ board: b, turn }) => {
+  board = b; myTurn = turn === myIndex;
+  renderBoard();
+  updateScoreboard(turn);
+  const isMyTurn = turn === myIndex;
+  setStatus(isMyTurn ? '⚡ YOUR TURN' : `${names[turn]}'S TURN`, turn === 0 ? 'x-turn' : 'o-turn');
+});
+
+socket.on('game_over', ({ result, winner, line, board: b, scores: sc, names: n }) => {
+  board = b; scores = sc; gameActive = false; myTurn = false;
+  if (n) names = n;
+  renderBoard(line || []);
+  updateScoreboard(-1);
+
+  const overlay = document.getElementById('resultOverlay');
+  const icon = document.getElementById('overlayIcon');
+  const title = document.getElementById('overlayTitle');
+  const sub = document.getElementById('overlaySub');
+
+  if (result === 'draw') {
+    setStatus('DRAW!', 'draw');
+    icon.textContent = '🤝'; title.textContent = "IT'S A DRAW!";
+    sub.textContent = 'Perfect balance · No winner';
+    title.style.color = '#fff';
+  } else {
+    const iWon = winner === myIndex;
+    setStatus(iWon ? '🏆 YOU WIN!' : `${names[winner]} WINS!`, 'win');
+    icon.textContent = iWon ? '🏆' : '💀';
+    title.textContent = iWon ? 'YOU WIN!' : `${names[winner]} WINS!`;
+    title.style.color = iWon ? '#ffd700' : winner === 0 ? 'var(--x)' : 'var(--o)';
+    sub.textContent = iWon ? 'Well played! Incredible!' : 'Better luck next time!';
+  }
+
+  overlayShown = true;
+  show('resultOverlay');
+});
+
+socket.on('opponent_left', () => {
+  showToast('⚠ Opponent disconnected.', 4000);
+  setStatus('OPPONENT LEFT', '');
+  gameActive = false; myTurn = false;
+  renderBoard();
+  show('rematchBtn');
+
+  const overlay = document.getElementById('resultOverlay');
+  document.getElementById('overlayIcon').textContent = '👻';
+  document.getElementById('overlayTitle').textContent = 'OPPONENT LEFT';
+  document.getElementById('overlayTitle').style.color = '#fff';
+  document.getElementById('overlaySub').textContent = 'The game has ended';
+  show('resultOverlay');
+});
+
+// ── KEYBOARD: Enter to submit ──────────────────────────────────────────────
+['createName','joinName','roomCode'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (id === 'createName') createRoom();
+      else joinRoom();
+    }
+  });
+});
+</script>
+</body>
+</html>
